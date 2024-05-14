@@ -31,15 +31,18 @@ get_upstream_area = function(dem, floodplain,watershed, out_path, overwrite = T 
     
   #4. This step finds the lower elevation point inside the floodplain polygon  
   squamstreampoints = read_sf(paste0(out_path,"streamspoints.shp")) #read in the stream points as sf object
-  vectpoint = vect(paste0(out_path,"streamspoints.shp")) # read in stream points as terra object
-  streamelev = terra::extract(demcrop,vectpoint) # extract values from dem using the terra points 
-  squamstreampoints = left_join(squamstreampoints,streamelev, by = c("FID" ="ID")) # join elevation information and spatial information 
+  
+  vectpoint = vect(paste0(out_path,"streamspoints.shp"))# read in stream points as terra object
+  floodpoints = terra::intersect(vectpoint,floodplain)
+  streamelev = terra::extract(demcrop,floodpoints) # extract values from dem using the terra points 
+  #floodpoints = left_join(floodpoints,streamelev, by = c("FID" ="ID")) # join elevation information and spatial information 
+  floodpoints = cbind(floodpoints,streamelev)
   floodsf = st_as_sf(floodplain) #convert to sf object 
-  floodjoin = st_join(floodsf,squamstreampoints) #spatial join elevation to floodplain 
+  floodpoints = st_as_sf(floodpoints)
+  floodjoin = st_join(floodsf,floodpoints) #spatial join elevation to floodplain 
   
-  highpoint = filter(squamstreampoints, elevation == min(floodjoin$elevation))%>% #filter for lower elevation point in the floodplain 
+  highpoint = filter(floodpoints, elevation == min(floodjoin$elevation))%>% #filter for lower elevation point in the floodplain 
     filter(FID ==min(FID))
-  
   st_write(highpoint,paste0(out_path,"highpoint2.shp"))#save lowest point 
   
   #use lowest point in watershed function 
@@ -60,7 +63,8 @@ dem = rast("./_data/bcdem.tif")
 watersf = read_sf("D:/WFI/Activity 4/_data/FWA_NAMED_WATERSHEDS_POLY/FWNMDWTRSH_polygon.shp")
 
 floodsf = read_sf("D:/WFI/Activity 4/_data/BC_floodplains/BC_floodplains.shp")%>% #select random floodplain and find center point 
-  sample_n(1)%>%
+  #sample_n(1)%>%
+  filter(HydroID == 724540) %>%
   st_point_on_surface()
 
 floodsf = st_join(floodsf,watersf)# determine which watershed floodplain belongs in 
@@ -71,8 +75,9 @@ print(floodsf$GNIS_NAME) #get the name of the watershed
 
 
 #read in,filter and project the watersheds and floodplains using terra  
-floodplane = vect("D:/WFI/Activity 4/_data/BC_floodplains/BC_floodplains.shp")%>%
-  filter(HydroID == floodsf$HydroID)%>%
+floodplain = vect("D:/WFI/Activity 4/_data/BC_floodplains/BC_floodplains.shp")%>%
+  #filter(HydroID == floodsf$HydroID)%>%
+  filter(HydroID == 724540) %>%
   project(dem)
 watersheds = read_sf("D:/WFI/Activity 4/_data/FWA_NAMED_WATERSHEDS_POLY/FWNMDWTRSH_polygon.shp")%>%
   filter(GNIS_NAME == floodsf$GNIS_NAME)%>%
@@ -85,12 +90,12 @@ watersheds = read_sf("D:/WFI/Activity 4/_data/FWA_NAMED_WATERSHEDS_POLY/FWNMDWTR
 leaflet()%>%
   addTiles()%>%
   addPolygons(data = st_as_sf(watersheds), fillOpacity = 0, label = as.character(as.character(watersheds$GNIS_NAME)))%>%
-  addPolygons(data = st_as_sf(floodplane), fillColor = "salmon", color = "salmon", label = as.character(floodplane$HydroID))%>%
+  addPolygons(data = st_as_sf(floodplain), fillColor = "salmon", color = "salmon", label = as.character(floodplain$HydroID))%>%
   addLegend("topright", colors = c("blue", "salmon"), labels = c("Watershed", "Floodplains"))
 
 
 #run the upstream area function 
-chilco = get_upstream_area(dem,floodplane, watersheds,out_path)
+chilco = get_upstream_area(dem,floodplain, watersheds,out_path)
 
 
 #convert to polygon to map using leaflet
@@ -102,7 +107,7 @@ uparea = as.polygons(chilco)%>%
 leaflet()%>%
   addTiles()%>%
   addPolygons(data = st_as_sf(watersheds), fillOpacity = 0, label = as.character(as.character(watersheds$GNIS_NAME)))%>%
-  addPolygons(data = st_as_sf(floodplane), fillColor = "salmon", color = "salmon", label = as.character(floodplane$HydroID))%>%
+  addPolygons(data = st_as_sf(floodplain), fillColor = "salmon", color = "salmon", label = as.character(floodplain$HydroID))%>%
   addPolygons(data = uparea,fillColor = "purple", color = "purple")%>%
   addLegend("topright", colors = c("blue", "salmon", "purple"), labels = c("Watershed", "Floodplains", "Upstream Area"))
 
