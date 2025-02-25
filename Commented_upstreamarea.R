@@ -55,34 +55,15 @@ get_upstream_area = function(dem, floodplain,watershed, out_path, overwrite = T 
 }
 
 #create output file path 
-out_path = "D:/WFI/Activity 4/_data/temppath/"
+out_path = "./_data/temppath/"
 dir.create(out_path)
 
 #Read dem, wateshed layer and floodplain layer 
-dem = rast("./_data/bcdem.tif")
-watersf = read_sf("D:/WFI/Activity 4/_data/FWA_NAMED_WATERSHEDS_POLY/FWNMDWTRSH_polygon.shp")
-
-floodsf = read_sf("D:/WFI/Activity 4/_data/BC_floodplains/BC_floodplains.shp")%>% #select random floodplain and find center point 
-  #sample_n(1)%>%
-  filter(HydroID == 724540) %>%
-  st_point_on_surface()
-
-floodsf = st_join(floodsf,watersf)# determine which watershed floodplain belongs in 
-
-floodsf = floodsf %>%
-  filter(AREA_HA == min(AREA_HA)) # if it belongs to many watersheds select the smallest
-print(floodsf$GNIS_NAME) #get the name of the watershed 
+dem = rast("./_data/dem.tif")
 
 
-#read in,filter and project the watersheds and floodplains using terra  
-floodplain = vect("D:/WFI/Activity 4/_data/BC_floodplains/BC_floodplains.shp")%>%
-  #filter(HydroID == floodsf$HydroID)%>%
-  filter(HydroID == 724540) %>%
-  project(dem)
-watersheds = read_sf("D:/WFI/Activity 4/_data/FWA_NAMED_WATERSHEDS_POLY/FWNMDWTRSH_polygon.shp")%>%
-  filter(GNIS_NAME == floodsf$GNIS_NAME)%>%
-  vect()%>%
-  project(dem)
+floodplain = vect("./_data/floodplain.shp")
+watersheds = vect("./_data/watersheds.shp")
 
 
 
@@ -139,7 +120,7 @@ ggplot()+
   labs(fill = "Elevation")+
   new_scale_fill()+
   geom_spatvector(data = watersheds,aes(colour = "watershed"), fill = NA )+
-  geom_spatvector(data = floodplane, aes(color = "floodplane"), fill = "purple")+
+  geom_spatvector(data = floodplain, aes(color = "floodplane"), fill = "purple")+
   scale_color_manual(values = c("forestgreen","black"))+
   geom_spatraster(data = chilco, alpha = 0.5)+
   scale_fill_coltab(data = chilco)+
